@@ -6,10 +6,10 @@ import pyaudio
 import signal
 import queue
 import numpy as np
-from radio import WBFM
+from radio import MFM
 
 #### Demodulator Settings
-cuda = False
+cuda = True
 freq = 96.9e6
 tau = 75e-6
 sfs = int(256e3)
@@ -30,7 +30,7 @@ sdr.setFrequency(SOAPY_SDR_RX, 0, freq)
 que = queue.Queue()
 p = pyaudio.PyAudio()
 audio_file = open("FM_{}.if32".format(int(freq)), "bw")
-demod = WBFM(tau, sfs, afs, dsp_buff, cuda=cuda)
+demod = MFM(tau, sfs, afs, dsp_buff, cuda=cuda)
 
 #### Declare the memory buffer
 if cuda:
@@ -41,15 +41,14 @@ else:
 
 #### Demodulation Function 
 def process(in_data, frame_count, time_info, status):
-    L, R = demod.run(que.get())
-    I = np.zeros((dsp_out*2), dtype=np.float32)
-    I[0::2] = L; I[1::2] = R
-    audio_file.write(I.tostring('C'))
-    return (I.reshape(dsp_out, 2), pyaudio.paContinue)
+    L = demod.run(que.get())
+    L = L.astype(np.float32)
+    audio_file.write(L.tostring('C'))
+    return (L, pyaudio.paContinue)
 
 stream = p.open(
     format=pyaudio.paFloat32,
-    channels=2,
+    channels=1,
     frames_per_buffer=dsp_out,
     rate=afs,
     output=True,
