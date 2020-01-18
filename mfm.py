@@ -6,11 +6,11 @@ import pyaudio
 import signal
 import queue
 import numpy as np
-from radio import MFM
+from radio.analog import MFM
 
 #### Demodulator Settings
 cuda = True
-freq = 96.9e6
+freq = 97.5e6
 tau = 75e-6
 sfs = int(256e3)
 afs = int(32e3)
@@ -20,7 +20,7 @@ dsp_buff = sdr_buff * 4
 dsp_out = int(dsp_buff/(sfs/afs))
 
 #### SoapySDR Configuration
-args = dict(driver="airspyhf")
+args = dict(driver="lime")
 sdr = SoapySDR.Device(args)
 sdr.setGainMode(SOAPY_SDR_RX, 0, True)
 sdr.setSampleRate(SOAPY_SDR_RX, 0, sfs)
@@ -30,7 +30,7 @@ sdr.setFrequency(SOAPY_SDR_RX, 0, freq)
 que = queue.Queue()
 p = pyaudio.PyAudio()
 audio_file = open("FM_{}.if32".format(int(freq)), "bw")
-demod = MFM(tau, sfs, afs, dsp_buff, cuda=cuda)
+demod = MFM(tau, sfs, afs, cuda=cuda)
 
 #### Declare the memory buffer
 if cuda:
@@ -41,10 +41,10 @@ else:
 
 #### Demodulation Function 
 def process(in_data, frame_count, time_info, status):
-    L = demod.run(que.get())
-    L = L.astype(np.float32)
-    audio_file.write(L.tostring('C'))
-    return (L, pyaudio.paContinue)
+    LPR = demod.run(que.get())
+    LPR = LPR.astype(np.float32)
+    audio_file.write(LPR.tostring('C'))
+    return (LPR, pyaudio.paContinue)
 
 stream = p.open(
     format=pyaudio.paFloat32,

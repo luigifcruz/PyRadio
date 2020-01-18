@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#/usr/bin/env python3
 
 from SoapySDR import *
 import SoapySDR
@@ -6,7 +6,7 @@ import pyaudio
 import signal
 import queue
 import numpy as np
-from radio import WBFM
+from radio.analog import WBFM
 
 #### Demodulator Settings
 cuda = False
@@ -20,7 +20,7 @@ dsp_buff = sdr_buff * 4
 dsp_out = int(dsp_buff/(sfs/afs))
 
 #### SoapySDR Configuration
-args = dict(driver="airspyhf")
+args = dict(driver="lime")
 sdr = SoapySDR.Device(args)
 sdr.setGainMode(SOAPY_SDR_RX, 0, True)
 sdr.setSampleRate(SOAPY_SDR_RX, 0, sfs)
