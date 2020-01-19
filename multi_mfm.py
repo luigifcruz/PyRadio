@@ -7,7 +7,7 @@ import signal
 import queue
 import numpy as np
 from radio.analog import MFM
-from radio.tuner import Tuner
+from radio.tools import Tuner
 
 #### Demodulator Settings
 cuda = True

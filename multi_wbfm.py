@@ -7,7 +7,7 @@ import signal
 import queue
 import numpy as np
 from radio.analog import WBFM
-from radio.tuner import Tuner
+from radio.tools import Tuner
 
 #### Demodulator Settings
 cuda = True
@@ -17,6 +17,25 @@ afs = int(32e3)
 
 radios = [
     { "freq": 97.5e6, "bw": sfs },
+    { "freq": 91.9e6, "bw": sfs },
+    { "freq": 94.5e6, "bw": sfs },
+    { "freq": 89.5e6, "bw": sfs },
+    { "freq": 101.5e6, "bw": sfs },
+    { "freq": 99.9e6, "bw": sfs },
+    { "freq": 93.4e6, "bw": sfs },
+    { "freq": 98.4e6, "bw": sfs },
+    { "freq": 98.9e6, "bw": sfs },
+    { "freq": 97.9e6, "bw": sfs },
+    { "freq": 92.4e6, "bw": sfs },
+    { "freq": 92.9e6, "bw": sfs },
+    { "freq": 93.9e6, "bw": sfs },
+    { "freq": 94.1e6, "bw": sfs },
+    { "freq": 91.1e6, "bw": sfs },
+    { "freq": 92.1e6, "bw": sfs },
+    { "freq": 93.1e6, "bw": sfs },
+    { "freq": 95.9e6, "bw": sfs },
+    { "freq": 102.1e6, "bw": sfs },
+    { "freq": 103.9e6, "bw": sfs },
     { "freq": 95.5e6, "bw": sfs },
     { "freq": 87.9e6, "bw": sfs },
     { "freq": 91.5e6, "bw": sfs },
@@ -51,6 +70,7 @@ sdr.setFrequency(SOAPY_SDR_RX, 0, tuner.mdf)
 #### Declare the memory buffer
 if cuda:
     import cusignal as sig
+    print("#### CUDA Backend Enabled: (cuSignal + Cupy)")
     buff = sig.get_shared_mem(tuner.size, dtype=np.complex64)
 else:
     buff = np.zeros([tuner.size], dtype=np.complex64)
