@@ -7,12 +7,8 @@ import sounddevice as sd
 import zmq
 
 # Demodulator Settings
-sfs = int(256e3)
+freq = 96.9e6
 afs = int(32e3)
-
-sdr_buff = 2048
-dsp_buff = sdr_buff * 16
-dsp_out = int(dsp_buff/(sfs/afs))
 
 # Queue and Shared Memory Allocation
 que = queue.Queue()
@@ -22,11 +18,14 @@ print("Creating ZeroMQ Server...")
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
 socket.connect("tcp://localhost:5555")
-socket.setsockopt(zmq.SUBSCRIBE, b"96900000")
+
+address = int(freq).to_bytes(4, byteorder='little')
+socket.setsockopt(zmq.SUBSCRIBE, address)
 
 # Demodulation Function
 def process(outdata, f, t, s):
     outdata[:, 0] = np.frombuffer(que.get(), dtype=np.float32)
+
 
 # Graceful Exit Handler
 def signal_handler(signum, frame):
@@ -35,7 +34,7 @@ def signal_handler(signum, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-with sd.OutputStream(blocksize=dsp_out, callback=process,
+with sd.OutputStream(blocksize=afs, callback=process,
                      samplerate=afs, channels=1):
     while True:
         [address, message] = socket.recv_multipart()

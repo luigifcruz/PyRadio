@@ -6,46 +6,54 @@ import signal
 import queue
 import numpy as np
 from radio.analog import MFM
-import sounddevice as sd
+from radio.tools import Tuner
+import cusignal as sig
 import zmq
 
 # Demodulator Settings
-cuda = False
-freq = 96.9e6
 tau = 75e-6
 sfs = int(256e3)
 afs = int(32e3)
 
-sdr_buff = 2048
-dsp_buff = sdr_buff * 16
-dsp_out = int(dsp_buff/(sfs/afs))
-
-# SoapySDR Configuration
-args = dict(driver="airspyhf")
-sdr = SoapySDR.Device(args)
-sdr.setGainMode(SOAPY_SDR_RX, 0, True)
-sdr.setSampleRate(SOAPY_SDR_RX, 0, sfs)
-sdr.setFrequency(SOAPY_SDR_RX, 0, freq)
+radios = [
+    {"freq": 97.5e6, "bw": sfs },
+    { "freq": 95.5e6, "bw": sfs },
+    { "freq": 94.5e6, "bw": sfs },
+    { "freq": 96.9e6, "bw": sfs },
+]
 
 # Queue and Shared Memory Allocation
 que = queue.Queue()
-demod = MFM(tau, sfs, afs, cuda=cuda)
 
-#  Create Server
+tuner = Tuner(radios, cuda=True)
+demod = MFM(tau, sfs, afs, cuda=True)
+dsp_out = int(tuner.dfac[0]/(sfs//afs))
+sdr_buff = 1024
+
 context = zmq.Context()
+context.setsockopt(zmq.IPV6, True)
 socket = context.socket(zmq.PUB)
 socket.bind("tcp://*:5555")
 
+print("# Tuner Settings:")
+print("     Bandwidth: {}".format(tuner.bw))
+print("     Mean Frequency: {}".format(tuner.mdf))
+print("     Offsets: {}".format(tuner.foff))
+print("     Radios: {}".format(len(radios)))
+
+# SoapySDR Configuration
+args = dict(driver="lime")
+sdr = SoapySDR.Device(args)
+sdr.setGainMode(SOAPY_SDR_RX, 0, True)
+sdr.setSampleRate(SOAPY_SDR_RX, 0, tuner.bw)
+sdr.setFrequency(SOAPY_SDR_RX, 0, tuner.mdf)
+
 # Declare the memory buffer
-if cuda:
-    import cusignal as sig
-    buff = sig.get_shared_mem(dsp_buff, dtype=np.complex64)
-else:
-    buff = np.zeros([dsp_buff], dtype=np.complex64)
+buff = sig.get_shared_mem(tuner.size, dtype=np.complex64)
+
 
 # Graceful Exit Handler
 def signal_handler(signum, frame):
-    sdr.deactivateStream(rx)
     sdr.closeStream(rx)
     exit(-1)
 
@@ -53,13 +61,16 @@ def signal_handler(signum, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 # Start Collecting Data
-plan = [(i*sdr_buff) for i in range(dsp_buff//sdr_buff)]
 rx = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32)
 sdr.activateStream(rx)
 
 while True:
-    for i in plan:
-        sdr.readStream(rx, [buff[i:]], sdr_buff)
-    LPR = demod.run(buff.copy())
-    LPR = LPR.astype(np.float32)
-    socket.send_multipart([b"96900000", LPR.tobytes()])
+    for i in range(tuner.size//sdr_buff):
+        sdr.readStream(rx, [buff[(i*sdr_buff):]], sdr_buff, timeoutUs=int(1e9))
+
+    tuner.load(buff.copy())
+    for i, f in enumerate(radios):
+        L = demod.run(tuner.run(i))
+        L = L.astype(np.float32)
+        address = int(f['freq']).to_bytes(4, byteorder='little')
+        socket.send_multipart([address, L.tobytes()])

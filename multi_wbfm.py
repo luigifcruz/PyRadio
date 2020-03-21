@@ -8,9 +8,9 @@ import queue
 import numpy as np
 from radio.analog import WBFM
 from radio.tools import Tuner
+import cusignal as sig
 
 # Demodulator Settings
-cuda = True
 tau = 75e-6
 sfs = int(256e3)
 afs = int(32e3)
@@ -46,8 +46,8 @@ radios = [
 que = queue.Queue()
 p = pyaudio.PyAudio()
 
-tuner = Tuner(radios, cuda=cuda)
-demod = WBFM(tau, sfs, afs, sfs, cuda=cuda)
+tuner = Tuner(radios, cuda=True)
+demod = WBFM(tau, sfs, afs, sfs, cuda=True)
 dsp_out = int(tuner.dfac[0]/(sfs//afs))
 sdr_buff = 1024
 
@@ -68,12 +68,8 @@ sdr.setSampleRate(SOAPY_SDR_RX, 0, tuner.bw)
 sdr.setFrequency(SOAPY_SDR_RX, 0, tuner.mdf)
 
 # Declare the memory buffer
-if cuda:
-    import cusignal as sig
-    print("# CUDA Backend Enabled: (cuSignal + Cupy)")
-    buff = sig.get_shared_mem(tuner.size, dtype=np.complex64)
-else:
-    buff = np.zeros([tuner.size], dtype=np.complex64)
+print("# CUDA Backend Enabled: (cuSignal + Cupy)")
+buff = sig.get_shared_mem(tuner.size, dtype=np.complex64)
 
 
 # Demodulation Function
