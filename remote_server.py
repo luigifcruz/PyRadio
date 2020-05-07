@@ -8,6 +8,7 @@ import numpy as np
 from radio.analog import MFM
 from radio.tools import Tuner
 import cusignal as sig
+import lzma
 import zmq
 
 # Demodulator Settings
@@ -71,6 +72,10 @@ while True:
     tuner.load(buff.copy())
     for i, f in enumerate(radios):
         L = demod.run(tuner.run(i))
-        L = L.astype(np.float32)
+        L *= 32767
+        L = L.astype(np.int32)
+
+        payload = lzma.compress(L.tobytes())
         address = int(f['freq']).to_bytes(4, byteorder='little')
-        socket.send_multipart([address, L.tobytes()])
+
+        socket.send_multipart([address, payload])

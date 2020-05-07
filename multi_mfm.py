@@ -27,9 +27,8 @@ radios = [
 que = queue.Queue()
 p = pyaudio.PyAudio()
 
-tuner = Tuner(radios, cuda=True)
-demod = MFM(tau, sfs, afs, cuda=True)
-dsp_out = int(tuner.dfac[0]/(sfs//afs))
+tuner = Tuner(radios, sfs, cuda=True)
+demod = MFM(tau, sfs, afs, sfs, cuda=True)
 sdr_buff = 1024
 
 print("# Tuner Settings:")
@@ -67,7 +66,7 @@ def process(in_data, frame_count, time_info, status):
 stream = p.open(
     format=pyaudio.paFloat32,
     channels=1,
-    frames_per_buffer=dsp_out,
+    frames_per_buffer=demod.out,
     rate=afs,
     output=True,
     stream_callback=process)

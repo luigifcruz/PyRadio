@@ -12,33 +12,11 @@ import cusignal as sig
 
 # Demodulator Settings
 tau = 75e-6
-sfs = int(256e3)
-afs = int(32e3)
+sfs = int(240e3)
+afs = int(48e3)
 
 radios = [
     { "freq": 97.5e6, "bw": sfs },
-    { "freq": 91.9e6, "bw": sfs },
-    { "freq": 94.5e6, "bw": sfs },
-    { "freq": 89.5e6, "bw": sfs },
-    { "freq": 101.5e6, "bw": sfs },
-    { "freq": 99.9e6, "bw": sfs },
-    { "freq": 93.4e6, "bw": sfs },
-    { "freq": 98.4e6, "bw": sfs },
-    { "freq": 98.9e6, "bw": sfs },
-    { "freq": 97.9e6, "bw": sfs },
-    { "freq": 92.4e6, "bw": sfs },
-    { "freq": 92.9e6, "bw": sfs },
-    { "freq": 93.9e6, "bw": sfs },
-    { "freq": 94.1e6, "bw": sfs },
-    { "freq": 91.1e6, "bw": sfs },
-    { "freq": 92.1e6, "bw": sfs },
-    { "freq": 93.1e6, "bw": sfs },
-    { "freq": 95.9e6, "bw": sfs },
-    { "freq": 102.1e6, "bw": sfs },
-    { "freq": 103.9e6, "bw": sfs },
-    { "freq": 95.5e6, "bw": sfs },
-    { "freq": 87.9e6, "bw": sfs },
-    { "freq": 91.5e6, "bw": sfs },
     { "freq": 96.9e6, "bw": sfs },
 ]
 
@@ -46,10 +24,9 @@ radios = [
 que = queue.Queue()
 p = pyaudio.PyAudio()
 
-tuner = Tuner(radios, cuda=True)
-demod = WBFM(tau, sfs, afs, sfs, cuda=True)
-dsp_out = int(tuner.dfac[0]/(sfs//afs))
-sdr_buff = 1024
+tuner = Tuner(radios, sfs, cuda=True)
+demod = [ WBFM(tau, sfs, afs, sfs, cuda=True) for _ in radios ]
+sdr_buff = 1200
 
 print("# Tuner Settings:")
 print("     Bandwidth: {}".format(tuner.bw))
@@ -77,20 +54,19 @@ def process(in_data, frame_count, time_info, status):
     tuner.load(que.get())
 
     for i, _ in enumerate(radios):
-        L, R = demod.run(tuner.run(i))
-        LR = np.zeros((dsp_out*2), dtype=np.float32)
-        LR[0::2] = L
-        LR[1::2] = R
+        buffer = tuner.run(i)
+        L, R = demod[i].run(buffer)
+        LR = np.ravel(np.column_stack((L, R))).astype(np.float32)
         afile[i].write(LR.tostring('C'))
 
-    LR = LR.reshape(dsp_out, 2)
+    LR = LR.reshape(demod[0].out, 2)
     return (LR, pyaudio.paContinue)
 
 
 stream = p.open(
     format=pyaudio.paFloat32,
     channels=2,
-    frames_per_buffer=dsp_out,
+    frames_per_buffer=demod[0].out,
     rate=afs,
     output=True,
     stream_callback=process)

@@ -10,12 +10,12 @@ import sounddevice as sd
 
 # Demodulator Settings
 cuda = True
-freq = 97.5e6
+freq = 96.9e6
 tau = 75e-6
 sfs = int(256e3)
 afs = int(32e3)
 
-sdr_buff = 2048
+sdr_buff = 1024
 dsp_buff = sdr_buff * 16
 dsp_out = int(dsp_buff/(sfs/afs))
 
