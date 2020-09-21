@@ -134,3 +134,4 @@ dmypy.json
 *.flac
 *.mp4
 *.ogg
+.vscode/settings.json
