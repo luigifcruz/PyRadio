@@ -12,15 +12,15 @@ import sounddevice as sd
 cuda = True
 freq = 96.9e6
 tau = 75e-6
-sfs = int(256e3)
-afs = int(32e3)
+sfs = int(240e3)
+afs = int(48e3)
 
-sdr_buff = 1024
-dsp_buff = sdr_buff * 16
+sdr_buff = 2400
+dsp_buff = sdr_buff * 10
 dsp_out = int(dsp_buff/(sfs/afs))
 
 # SoapySDR Configuration
-args = dict(driver="airspyhf")
+args = dict(driver="lime")
 sdr = SoapySDR.Device(args)
 sdr.setGainMode(SOAPY_SDR_RX, 0, True)
 sdr.setSampleRate(SOAPY_SDR_RX, 0, sfs)
@@ -29,7 +29,7 @@ sdr.setFrequency(SOAPY_SDR_RX, 0, freq)
 # Queue and Shared Memory Allocation
 que = queue.Queue()
 audio_file = open("FM_{}.if32".format(int(freq)), "bw")
-demod = WBFM(tau, sfs, afs, dsp_buff, cuda=cuda)
+demod = WBFM(tau, sfs, afs, cuda=cuda)
 
 # Declare the memory buffer
 if cuda:
@@ -43,7 +43,7 @@ else:
 def process(outdata, f, t, s):
     outdata[:] = np.dstack(demod.run(que.get()))
     LPR = outdata[:].astype(np.float32)
-    audio_file.write(LPR.tostring())
+    audio_file.write(LPR.tobytes())
 
 
 # Graceful Exit Handler
@@ -64,5 +64,5 @@ with sd.OutputStream(blocksize=dsp_out, callback=process,
                      samplerate=afs, channels=2):
     while True:
         for i in plan:
-            sdr.readStream(rx, [buff[i:]], sdr_buff)
+            sdr.readStream(rx, [buff[i:]], sdr_buff, timeoutUs=int(1e9))
         que.put_nowait(buff.copy())
